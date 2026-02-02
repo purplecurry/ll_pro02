@@ -1,0 +1,150 @@
+{% extends 'game/base.html' %}
+{% load static %}
+{% load number_filters %}
+
+{% block title %}투자하기 - 유니콘 메이커{% endblock %}
+
+{% block content %}
+<!-- 로딩 오버레이 -->
+<div id="loading-overlay" class="loading-overlay">
+    <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">잠시만 기다려주세요...</p>
+    </div>
+</div>
+
+<div class="play-page">
+
+    <!-- 캐릭터 & 아이디어 -->
+    <div class="character-box">
+        <div class="character-info">
+            <div class="character-image">
+                <img src="{% static 'images/characters/' %}{{ character.key }}.png" alt="{{ character.name }}">
+            </div>
+            <h2>{{ character.name }}</h2>
+            <p class="character-concept">{{ character.concept }}</p>
+        </div>
+        
+        <div class="idea-bubble">
+            <h3>💡 {{ idea.title }}</h3>
+            <p>{{ idea.description }}</p>
+        </div>
+    </div>
+
+    <!-- 투자 폼 -->
+    <div class="invest-section">
+        <!-- 게임 상태 표시 -->
+        <div class="game-status">
+            <div class="status-item">
+                <span class="label">💰자본금</span>
+                <span class="value">{{ session.current_capital|korean_currency }}</span>
+            </div>
+            <div class="status-item">
+                <span class="label">🎯남은 기회</span>
+                <span class="value">{{ session.remaining_chances }}회</span>
+            </div>
+            <div class="status-item">
+                <span class="label">🌞성공 확률</span>
+                <span class="value {{ prob_class }}">{{ prob_text }}</span>
+            </div>
+        </div>
+        <form method="POST" action="{% url 'game:invest' session_id=session.pk %}" onsubmit="showLoading()">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label>투자 금액 (만원)</label>
+                <input type="number" name="amount" max="{{ session.current_capital }}" id="amount" value="2000" required>
+                <style>
+                input[type="number"]::-webkit-outer-spin-button,
+                input[type="number"]::-webkit-inner-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                }
+                </style>
+                <small>2000만원 이상 혹은 올인만 가능</small>
+            </div>            
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary" name="action" value="invest" onclick="return handleInvestRange(event)">💸투자하기</button>
+                
+                {% if can_enchant %}
+                <button type="submit" class="btn btn-up" name="action" value="enchant">💡자문하기</button>
+                {% else %}
+                <button type="button" class="btn btn-up" disabled title="{% if enchant_used %}이미 자문함{% else %}자본금 부족{% endif %}">
+                    {% if enchant_used %}✅자문 완료{% else %}💡자문하기{% endif %}
+                </button>
+                {% endif %}
+                
+                <button type="button" class="btn btn-danger" onclick="setAllIn()">🔥올인</button>
+                <!-- 0130 -->
+                {% if session.remaining_reroles > 0 %}
+                    <a href="{% url 'game:pass' session_id=session.pk %}" class="btn btn-secondary" onclick="showLoading2()">
+                        ⏭️패스 ({{ session.remaining_reroles }}/5)
+                    </a>
+                {% else %}
+                    <button type="button" class="btn btn-secondary" disabled style="cursor: not-allowed; opacity: 0.6;">
+                        ❌패스 기회 소진 (0/5)
+                    </button>
+                {% endif %}
+                <!-- end of 0130 -->
+            </div>
+        </form>
+        
+        <script>
+        // ========== 변수 정의 ==========
+        const amountInput = document.getElementById('amount');
+        const helpText = document.querySelector('.form-group small');
+        const userCapital = {{ session.current_capital }};
+
+        // ========== 투자 범위 체크 ==========
+        function handleInvestRange(event) {
+            const min = Math.min(2000, userCapital);
+            const currentVal = parseInt(amountInput.value) || 0;
+
+            // 최소 투자금 체크 (올인 제외)
+            if (currentVal < 2000 && currentVal !== userCapital) {
+                alert("2000만원 이상 혹은 올인만 가능합니다.");
+                amountInput.value = min;
+                event.preventDefault();
+                return false;
+            }
+
+            return true;
+        }
+
+        // ========== 올인 기능 ==========
+        function setAllIn() {
+            amountInput.value = userCapital;
+        }
+
+        // ========== 초기 설정 ==========
+        const minVal = Math.min(2000, userCapital);
+        amountInput.value = minVal;
+        amountInput.min = minVal;
+        
+        // ========== 로딩 오버레이 ==========
+        function showLoading() {
+            const messages = [
+                "🏃 투자한 회사가 열심히 굴러가는 중...",
+                "💼 창업가가 사업 준비 중...",
+                "🚀 스타트업이 성장하는 중...",
+                "🔨 투자금으로 열심히 일하는 중...",
+                "📈 사업 결과를 기다리는 중..."
+            ];
+            const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+            document.querySelector('.loading-text').textContent = randomMsg;
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+
+        function showLoading2() {
+            const messages = [
+                "🏃 다음 창업가가 미팅룸으로 들어오는 중...",
+                "💼 다음 창업가가 아이디어 발표준비 중...",
+            ];
+            const randomMsg = messages[Math.floor(Math.random() * messages.length)];
+            document.querySelector('.loading-text').textContent = randomMsg;
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+        </script>
+    </div>
+</div>
+{% endblock %}
